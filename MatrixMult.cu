@@ -10,13 +10,13 @@ typedef unsigned int UI;
  * This macro checks return value of the CUDA runtime call and exits
  * the application if the call failed.
  */
-#define CUDA_CHECK_RETURN(value) {											\
+#define CUDA_CHECK_RETURN(value) {                                          \
     cudaError_t err = value;                                                \
     if (err != cudaSuccess) {                                               \
-	    fprintf(stderr, "Error %s at line %d in file %s\n",                 \
-		        cudaGetErrorString(err), __LINE__, __FILE__);               \
+        fprintf(stderr, "Error %s at line %d in file %s\n",                 \
+        cudaGetErrorString(err), __LINE__, __FILE__);                       \
         exit(EXIT_FAILURE);                                                 \
-	}                                                                       \
+    }                                                                       \
 }
 
 // Simple utility function to check for CUDA runtime errors
@@ -28,7 +28,7 @@ void checkCUDAError(const char *msg) {
     }
 }
 
-// Host function to compute the matrix multiplication
+/* Host function to compute the matrix multiplication */
 void matrix_mult_cpu(int *h_a, int *h_b, int *h_result, UI n) {
     for (int i = 0; i < n; ++i) {
         for (int j = 0; j < n; ++j) {
@@ -41,7 +41,7 @@ void matrix_mult_cpu(int *h_a, int *h_b, int *h_result, UI n) {
     }
 }
 
-// Kernel that computes the matrix multiplication
+/* Kernel that computes the matrix multiplication */
 __global__ void matrix_mult_gpu(int *d_a, int *d_b, int *d_result, UI n) {
     __shared__ int tile_a[BLOCK_SIZE][BLOCK_SIZE];
     __shared__ int tile_b[BLOCK_SIZE][BLOCK_SIZE];
@@ -72,7 +72,7 @@ int main(int argc, char **argv) {
     n = 2048;
     mat_size = n * n * sizeof(int);
 
-    // Code to create two events in order to compute elapsed time
+    /* Code to create two events in order to compute elapsed time */
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
@@ -84,7 +84,7 @@ int main(int argc, char **argv) {
     cudaMallocHost((void **) &h_result, mat_size);
     checkCUDAError("cudaMallocHost error");
 
-    // Initialize input matrixs
+    /* Initialize input matrixs */
     for (int i = 0; i < n; ++i) {
         for (int j = 0; j < n; ++j) {
             h_a[i * n + j] = rand() % 1024;
@@ -94,10 +94,10 @@ int main(int argc, char **argv) {
 
     cudaEventRecord(start, 0);
 
-    // Compute matrix multiplication on CPU (host)
+    /* Compute matrix multiplication on CPU (host) */
     matrix_mult_cpu(h_a, h_b, h_result, n);
 
-    // Compute the host elapsed time
+    /* Compute the host elapsed time */
     cudaEventRecord(stop, 0);
     cudaEventSynchronize(stop);
     float elapsed_time_cpu;
@@ -108,7 +108,7 @@ int main(int argc, char **argv) {
 
     /*------------------------ COMPUTATION ON GPU ----------------------------*/
 
-    // Allocate memory space on the device
+    /* Allocate memory space on the device */
     int *d_a, *d_b, *d_result, *h_result_gpu;
     cudaMalloc((void **) &d_a, mat_size);
     cudaMalloc((void **) &d_b, mat_size);
@@ -118,25 +118,25 @@ int main(int argc, char **argv) {
     cudaMallocHost((void **) &h_result_gpu, mat_size);
     checkCUDAError("cudaMallocHost for h_result_gpu error");
 
-    // Transfer data from host to device
+    /* Transfer data from host to device */
     cudaMemcpy(d_a, h_a, mat_size, cudaMemcpyHostToDevice);
     cudaMemcpy(d_b, h_b, mat_size, cudaMemcpyHostToDevice);
     checkCUDAError("cudaMemcpy (from host to device) error");
 
-    // Execution configuration setup
-    // Note: ceil(n / BLOCK_SIZE) also works for dim_grid setup
+    /* Execution configuration setup */
+    /* Note: ceil(n / BLOCK_SIZE) also works for dim_grid setup */
     dim3 dim_grid((n - 1) / BLOCK_SIZE + 1, (n - 1) / BLOCK_SIZE + 1, 1);
     dim3 dim_block(BLOCK_SIZE, BLOCK_SIZE, 1);
 
     cudaEventRecord(start, 0);
 
-    // Compute matrix multiplication on GPU (device kernel launch)
+    /* Compute matrix multiplication on GPU (device kernel launch) */
     matrix_mult_gpu<<<dim_grid, dim_block>>>(d_a, d_b, d_result, n);
 
-    // Block until the device has completed
+    /* Block until the device has completed */
     //cudaDeviceSynchronize();
 
-    // Compute the device elapsed time
+    /* Compute the device elapsed time */
     cudaEventRecord(stop, 0);
     cudaEventSynchronize(stop);
     float elapsed_time_gpu;
@@ -145,11 +145,11 @@ int main(int argc, char **argv) {
     printf("GPU matrix multiplication has finished!\nElapsed time: %f ms\n\n",
                 elapsed_time_gpu);
 
-    // Transefr results from device to host
+    /* Transefr results from device to host */
     cudaMemcpy(h_result_gpu, d_result, mat_size, cudaMemcpyDeviceToHost);
     checkCUDAError("cudaMemcpy (from device to host) error");
 
-    // Compare against host computed solution (no valid for floating point)
+    /* Compare against host computed solution (no valid for floating point) */
     for (int i = 0; i < n; ++i) {
         for (int j = 0; j < n; ++j) {
             assert(h_result[i * n + j] == h_result_gpu[i * n + j]);
@@ -158,17 +158,17 @@ int main(int argc, char **argv) {
 
     printf("Matrix Multiplication on both CPU and GPU are correct!\n\n");
 
-    // Destroy CUDA Events
+    /* Destroy CUDA Events */
     cudaEventDestroy(start);
     cudaEventDestroy(stop);
 
-    // Free device memory
+    /* Free device memory */
     cudaFree(d_result);
     cudaFree(d_a);
     cudaFree(d_b);
     checkCUDAError("cudaFree error");
 
-    // Free host memory (it also works with free() call)
+    /* Free host memory (it also works with free() call) */
     cudaFreeHost(h_a);
     cudaFreeHost(h_b);
     cudaFreeHost(h_result);
@@ -178,3 +178,4 @@ int main(int argc, char **argv) {
     printf("Speedup of GPU version over the CPU version for an %u x %u input "
             "matrixs is %fX\n", n, n, elapsed_time_cpu / elapsed_time_gpu);
 }
+
